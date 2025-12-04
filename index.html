@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>꿈틀이 그림판 v2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <style>
+        :root {
+            --bg-color: #c0c0c0;
+            --win-border: #000000;
+            --accent: #0000aa;
+            /* 요청하신대로 주황색을 회색으로 변경 */
+            --orange-thumb: #808080; 
+        }
+
+        body {
+            background-color: #555;
+            background-image: radial-gradient(#666 15%, transparent 16%), radial-gradient(#666 15%, transparent 16%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            font-family: 'Noto Sans KR', sans-serif;
+            display: flex;
+            min-height: 100vh;
+            margin: 0;
+            overflow: auto;
+            user-select: none;
+        }
+
+        .window-container {
+            width: auto;
+            height: auto;
+            background-color: var(--bg-color);
+            border: 2px solid var(--win-border);
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            margin: auto;
+            flex-shrink: 0;
+        }
+
+        .title-bar {
+            background: linear-gradient(90deg, #000080, #1084d0);
+            color: white;
+            padding: 4px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2rem;
+            border-bottom: 2px solid var(--win-border);
+        }
+
+        .menu-bar {
+            display: flex;
+            padding: 6px;
+            background-color: var(--bg-color);
+            border-bottom: 2px solid var(--win-border);
+            font-size: 0.9rem;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .menu-item {
+            padding: 4px 8px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        
+        .menu-item:hover {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .menu-separator {
+            width: 2px;
+            height: 20px;
+            background-color: #888;
+            border-right: 1px solid #fff;
+            margin: 0 2px;
+        }
+
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        input[type="range"] {
+            width: 60px; 
+            height: 10px;
+            cursor: pointer;
+            vertical-align: middle;
+            -webkit-appearance: none;
+            background: transparent;
+            border: 1px solid #000;
+            border-radius: 5px;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 10px;
+            cursor: pointer;
+            background: linear-gradient(to right, var(--orange-thumb) 0%, #e0e0e0 0%);
+            border-radius: 5px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--orange-thumb);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 1px solid #000;
+            box-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+            margin-top: -1px;
+        }
+
+        .workspace {
+            display: flex;
+            padding: 10px;
+            gap: 10px;
+            background-color: #e0e0e0;
+            align-items: flex-start;
+        }
+
+        .toolbar {
+            width: 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px; 
+            align-items: center;
+        }
+
+        .tool-btn {
+            width: 48px;
+            height: 40px;
+            background-color: var(--bg-color);
+            border: 2px outset #fff;
+            box-shadow: 1px 1px 0 #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .tool-btn:active, .tool-btn.active {
+            border: 2px inset #fff;
+            background-color: #ddd;
+            transform: translate(1px, 1px);
+        }
+
+        .color-area {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            border-top: 2px solid #999;
+            padding-top: 10px;
+            justify-items: center; 
+            margin-top: 8px; 
+        }
+
+        .color-swatch, .color-select-btn, .bg-btn {
+            width: 25px; 
+            height: 25px; 
+            border: 2px solid #000;
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box; 
+        }
+        
+        .color-swatch.active {
+            box-shadow: 0 0 0 2px #fff, 0 0 0 4px #000;
+            z-index: 1;
+        }
+
+        .color-select-btn {
+            background-color: #ff66cc;
+        }
+
+        .bg-btn {
+            background-color: #ffffff;
+            font-weight: bold;
+            font-size: 14px;
+            line-height: 1;
+            color: #000;
+        }
+
+        .color-plus-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white; 
+            text-shadow: 0 0 2px black;
+            font-weight: bold;
+            font-size: 16px;
+            pointer-events: none;
+        }
+
+        .canvas-wrapper {
+            width: 500px;
+            height: 500px;
+            background-color: #fff;
+            border: 2px inset #fff;
+            position: relative;
+            cursor: crosshair;
+            overflow: hidden;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.1);
+            flex-shrink: 0;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            image-rendering: pixelated; 
+            touch-action: none;
+        }
+
+        .status-bar {
+            padding: 4px 8px;
+            background-color: var(--bg-color);
+            border-top: 2px solid var(--win-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3); 
+            z-index: 99;
+        }
+
+        .retro-modal {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white; 
+            border: 2px solid black; 
+            padding: 10px;
+            text-align: center;
+            box-shadow: 10px 10px 0 rgba(0,0,0,0.5); 
+            z-index: 100;
+            min-width: 200px;
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+
+        .retro-modal h3 {
+            margin: 5px 0 15px 0;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .retro-btn {
+            padding: 5px 20px;
+            margin: 10px 5px 5px 5px;
+            background: #c0c0c0;
+            border: 2px outset #fff;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            min-width: 60px;
+        }
+        
+        .retro-btn:active {
+            border: 2px inset #fff;
+            background: #aaaaaa;
+        }
+
+        .palette-grid {
+            display: grid;
+            grid-template-columns: repeat(18, 1fr); 
+            gap: 1px;
+            background-color: #000;
+            border: 2px inset #fff;
+            margin-bottom: 10px;
+        }
+
+        .palette-cell {
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        .palette-cell:hover {
+            border: 1px solid white;
+            z-index: 10;
+            transform: scale(1.2);
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .loading-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.8);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            font-size: 1.2rem;
+            color: #000;
+            text-align: center;
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <div class="window-container">
+        <div class="title-bar">
+            <div style="display: flex; gap: 10px; align-items: center;"><span>꿈틀이 그림판 v2</span></div>
+            <button class="retro-btn" onclick="toggleFullScreen()" style="width: 24px; height: 24px; padding: 0; display: flex; justify-content: center; align-items: center; min-width: unset;">
+                <i data-lucide="maximize" style="width: 14px; height: 14px;"></i>
+            </button>
+        </div>
+
+        <div class="menu-bar">
+            <div class="menu-item" onclick="confirmNew()">새로 만들기</div>
+            <div class="menu-item" onclick="saveGif()">GIF 저장</div>
+            <div class="menu-item" onclick="toggleSound()">소리 <span id="sound-status">[ON]</span></div>
+            <div class="menu-separator"></div>
+            <div class="slider-group">
+                <span>크기:</span>
+                <input type="range" id="size-slider" min="1" max="30" value="3" oninput="updateSize(this.value)" title="브러시 크기">
+                <span id="size-val" style="width: 20px;">3</span>
+            </div>
+            <div class="menu-separator"></div>
+            <div class="slider-group">
+                <span>떨림:</span>
+                <input type="range" id="wiggle-slider" min="0" max="10" step="1" value="3" oninput="updateWiggle(this.value)" title="떨림 강도">
+                <span id="wiggle-val" style="width: 25px;">3.0</span>
+            </div>
+        </div>
+
+        <div class="workspace">
+            <div class="toolbar">
+                <button class="tool-btn active" id="btn-pen" onclick="selectTool('pen')" title="펜">
+                    <i data-lucide="pencil"></i>
+                </button>
+                <button class="tool-btn" id="btn-marker" onclick="selectTool('marker')" title="마커 (반투명)">
+                    <i data-lucide="highlighter"></i>
+                </button>
+                <button class="tool-btn" id="btn-eraser" onclick="selectTool('eraser')" title="지우개">
+                    <i data-lucide="eraser"></i>
+                </button>
+                <button class="tool-btn" onclick="confirmClear()" title="전체 삭제">
+                    <i data-lucide="trash-2" style="color:black;"></i>
+                </button>
+                <button class="tool-btn" onclick="loadImageBackground()" title="배경 이미지 불러오기">
+                    <i data-lucide="camera" style="color:black;"></i>
+                </button>
+                <button class="tool-btn" onclick="undo()" title="실행 취소">
+                    <i data-lucide="undo-2"></i>
+                </button>
+                <button class="tool-btn" onclick="redo()" title="다시 실행">
+                    <i data-lucide="redo-2"></i>
+                </button>
+
+                <div class="color-area">
+                    <div class="color-swatch active" style="background: #000000;" onclick="setColor('#000000', this)" title="검정"></div>
+                    <div class="color-swatch" style="background: #ffffff; border: 2px solid #ccc;" onclick="setColor('#ffffff', this)" title="흰색"></div>
+                    <div class="color-swatch" style="background: #ff3333;" onclick="setColor('#ff3333', this)" title="빨강"></div>
+                    <div class="color-swatch" style="background: #ff8c00;" onclick="setColor('#ff8c00', this)" title="주황"></div>
+                    <div class="color-swatch" style="background: #ffcc00;" onclick="setColor('#ffcc00', this)" title="노랑"></div>
+                    <div class="color-swatch" style="background: #33cc33;" onclick="setColor('#33cc33', this)" title="초록"></div>
+                    <div class="color-swatch" style="background: #3333ff;" onclick="setColor('#3333ff', this)" title="파랑"></div>
+                    <div class="color-swatch" style="background: #9933ff;" onclick="setColor('#9933ff', this)" title="보라"></div>
+
+                    <div class="color-select-btn" id="custom-swatch" style="background: #ff66cc;" onclick="openPaletteModal('brush')" title="256색 선택 (+)">
+                        <span class="color-plus-icon">+</span>
+                    </div>
+                    <div class="bg-btn" onclick="openPaletteModal('bg')" title="배경색 변경 (B)">
+                        B
+                    </div>
+                </div>
+            </div>
+
+            <div class="canvas-wrapper" id="canvas-container">
+                <canvas id="drawing-canvas" width="500" height="500"></canvas>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <span id="status-text">500X500 캔버스 (Web Safe Color)</span>
+            <span>KSMS APPS</span>
+        </div>
+        
+        <div class="modal-overlay" id="overlay"></div>
+
+        <div class="retro-modal" id="new-modal">
+            <p style="margin: 20px 0;">모든 그림을 지우고<br>새로 만드시겠습니까?</p>
+            <div>
+                <button class="retro-btn" onclick="createNewCanvas()">네</button>
+                <button class="retro-btn" onclick="closeModal()">아니오</button>
+            </div>
+        </div>
+
+        <div class="retro-modal" id="clear-modal">
+            <p style="margin: 20px 0;">정말로 모든 그림을<br>지우시겠습니까?<br><span style="font-size:0.8rem; color:#666;">(배경은 유지됩니다)</span></p>
+            <div>
+                <button class="retro-btn" onclick="clearCanvas()">네</button>
+                <button class="retro-btn" onclick="closeModal()">아니오</button>
+            </div>
+        </div>
+
+        <div class="retro-modal" id="palette-modal">
+            <h3 id="palette-modal-title">색상 선택</h3>
+            <div id="palette-container" class="palette-grid"></div>
+            <div>
+                <button class="retro-btn" onclick="closeModal()">취소</button>
+            </div>
+        </div>
+
+        <div class="loading-overlay" id="loading-overlay">
+            <div id="loading-text">처리 중...</div>
+            <div style="font-size: 0.9rem; margin-top: 10px;">잠시만 기다려 주세요.</div>
+        </div>
+    </div>
+
+    <input type="file" id="bg-image-input" accept="image/*" style="display: none;">
+
+    <script>
+        lucide.createIcons();
+
+        // --- 변수 및 설정 ---
+        const canvas = document.getElementById('drawing-canvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+        const statusText = document.getElementById('status-text');
+        const bgImageInput = document.getElementById('bg-image-input');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        
+        // --- 렌더링을 위한 오프스크린 캔버스 추가 (그림 레이어) ---
+        const offscreenCanvas = document.createElement('canvas');
+        offscreenCanvas.width = 500;
+        offscreenCanvas.height = 500;
+        const offCtx = offscreenCanvas.getContext('2d');
+        
+        let isDrawing = false;
+        let points = []; 
+        let strokes = []; 
+        let removedStrokes = []; 
+        let lastClearSnapshot = null;
+        let lastClearRedoSnapshot = null;
+        
+        let currentTool = 'pen';
+        let currentColor = '#000000';
+        let currentSize = 3; 
+        let currentWiggleAmount = 3.0; 
+        const DEFAULT_BG_COLOR = '#ffffff'; 
+        let canvasBgColor = DEFAULT_BG_COLOR;
+        let backgroundImage = null;
+        
+        let colorPickMode = 'bg'; 
+        let customSwatchColor = '#ff66cc'; 
+        let customSwatchElement = document.getElementById('custom-swatch');
+
+        let isSoundOn = true;
+        let audioCtx;
+        let activePointers = new Set();
+
+        // --- 256색(Web Safe Colors) 초기화 ---
+        const paletteContainer = document.getElementById('palette-container');
+        const hexSteps = ['00', '33', '66', '99', 'cc', 'ff'];
+        
+        function initPalette() {
+            paletteContainer.innerHTML = ''; 
+            for (let r of hexSteps) {
+                for (let g of hexSteps) {
+                    for (let b of hexSteps) {
+                        const colorHex = `#${r}${g}${b}`;
+                        const cell = document.createElement('div');
+                        cell.className = 'palette-cell';
+                        cell.style.backgroundColor = colorHex;
+                        cell.title = colorHex;
+                        cell.onclick = () => selectPaletteColor(colorHex);
+                        paletteContainer.appendChild(cell);
+                    }
+                }
+            }
+        }
+        initPalette();
+
+        // --- 엔진 ---
+        let frame = 0;
+        let lastFrameTime = 0;
+        const wiggleSpeed = 100; 
+
+        function animate(timestamp) {
+            if (timestamp - lastFrameTime > wiggleSpeed) {
+                frame = (frame + 1) % 3; 
+                lastFrameTime = timestamp;
+                render();
+            }
+            requestAnimationFrame(animate);
+        }
+
+        // --- 수정된 렌더링 로직 (레이어 분리) ---
+        function render() {
+            // 1. 메인 캔버스에 배경(종이/사진) 그리기
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = canvasBgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (backgroundImage) {
+                ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+            }
+            
+            // 2. 오프스크린 캔버스(그림 레이어) 초기화 (완전 투명하게)
+            offCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+            offCtx.lineCap = 'round';
+            offCtx.lineJoin = 'round';
+
+            // 3. 그림 레이어에 모든 선 그리기
+            strokes.forEach(stroke => {
+                if (stroke.type === 'action') return; 
+                if (stroke.points.length < 2) return;
+
+                offCtx.beginPath();
+                
+                // 지우개: 투명하게 지우기 (destination-out)
+                if (stroke.tool === 'eraser') {
+                    offCtx.globalCompositeOperation = 'destination-out';
+                    offCtx.strokeStyle = '#000000'; // 색상은 상관없음, 알파가 중요
+                    offCtx.globalAlpha = 1.0;
+                } else {
+                    offCtx.globalCompositeOperation = 'source-over';
+                    offCtx.strokeStyle = stroke.color;
+                    offCtx.globalAlpha = (stroke.tool === 'marker') ? 0.5 : 1.0;
+                }
+                
+                offCtx.lineWidth = stroke.size;
+                const wiggleAmt = (stroke.wiggleAmount !== undefined) ? stroke.wiggleAmount : 3.0;
+
+                let p0 = stroke.points[0];
+                let w0 = getWiggle(p0.x, p0.y, stroke.seed, 0, wiggleAmt);
+                offCtx.moveTo(p0.x + w0.x, p0.y + w0.y);
+
+                for (let i = 1; i < stroke.points.length; i++) {
+                    let p = stroke.points[i];
+                    let w = getWiggle(p.x, p.y, stroke.seed, i, wiggleAmt);
+                    offCtx.lineTo(p.x + w.x, p.y + w.y);
+                }
+                offCtx.stroke();
+            });
+            
+            // 4. 현재 그리고 있는 선(미리보기) 그리기
+            if (points.length > 0) {
+                offCtx.beginPath();
+                
+                if (currentTool === 'eraser') {
+                    offCtx.globalCompositeOperation = 'destination-out';
+                    offCtx.strokeStyle = '#000000';
+                    offCtx.globalAlpha = 1.0;
+                } else {
+                    offCtx.globalCompositeOperation = 'source-over';
+                    offCtx.strokeStyle = currentColor; 
+                    offCtx.globalAlpha = (currentTool === 'marker') ? 0.5 : 1.0;
+                }
+                
+                offCtx.lineWidth = currentSize;
+
+                offCtx.moveTo(points[0].x, points[0].y);
+                for(let i=1; i<points.length; i++){
+                    offCtx.lineTo(points[i].x, points[i].y);
+                }
+                offCtx.stroke();
+            }
+            
+            // 5. 그림 레이어를 배경 레이어 위에 합성
+            ctx.drawImage(offscreenCanvas, 0, 0);
+        }
+
+        function getWiggle(x, y, seed, index, amount) {
+            if (amount <= 0) return {x: 0, y: 0};
+            const uniqueVal = (x * index) + (y * seed) + (frame * 1234.56);
+            return { 
+                x: Math.sin(uniqueVal) * amount, 
+                y: Math.cos(uniqueVal * 0.9) * amount 
+            };
+        }
+
+        // --- 그리기 이벤트 ---
+        container.addEventListener('pointerdown', startDrawing);
+        container.addEventListener('pointermove', draw);
+        container.addEventListener('pointerup', stopDrawing);
+        container.addEventListener('pointercancel', stopDrawing);
+
+        function startDrawing(e) {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            e.preventDefault();
+            activePointers.add(e.pointerId);
+            if (activePointers.size >= 2) { if (isDrawing) { isDrawing = false; points = []; } return; }
+            
+            isDrawing = true;
+            try { container.setPointerCapture(e.pointerId); } catch (err) {}
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            points = [{x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY}];
+            
+            lastClearSnapshot = null;
+            lastClearRedoSnapshot = null;
+
+            if (removedStrokes.length > 0) removedStrokes = [];
+            playSound(points[0].y);
+        }
+
+        function draw(e) {
+            if (!isDrawing || activePointers.size >= 2) return;
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const y = (e.clientY - rect.top) * scaleY;
+            points.push({x: (e.clientX - rect.left) * scaleX, y: y});
+            if(Math.random() > 0.8) playSound(y);
+        }
+
+        function stopDrawing(e) {
+            if (e && e.pointerId !== undefined) activePointers.delete(e.pointerId);
+            if (!isDrawing) return;
+            if (e && e.pointerId) try { container.releasePointerCapture(e.pointerId); } catch (err) {}
+            isDrawing = false;
+            
+            if (points.length > 1) {
+                strokes.push({
+                    type: 'stroke', 
+                    color: currentColor, 
+                    size: parseFloat(currentSize),
+                    points: points,
+                    seed: Math.random(),
+                    tool: currentTool,
+                    wiggleAmount: parseFloat(currentWiggleAmount)
+                });
+            }
+            points = [];
+            render();
+        }
+
+        function updateSliderBackground(sliderId, value, max) {
+            const slider = document.getElementById(sliderId);
+            if (!slider) return;
+            const percentage = (value / max) * 100;
+            slider.style.background = `linear-gradient(to right, var(--orange-thumb) 0%, var(--orange-thumb) ${percentage}%, #e0e0e0 ${percentage}%, #e0e0e0 100%)`;
+        }
+
+        function selectTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            if (document.getElementById(`btn-${tool}`)) {
+                document.getElementById(`btn-${tool}`).classList.add('active');
+            }
+            let recSize = 3;
+            if (tool === 'pen') recSize = 3; 
+            if (tool === 'marker') recSize = 15; 
+            if (tool === 'eraser') recSize = 30; 
+            
+            document.getElementById('size-slider').value = recSize;
+            updateSize(recSize);
+        }
+
+        function setColor(color, element) {
+            if (currentTool === 'eraser') selectTool('pen');
+            currentColor = color;
+            document.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('active'));
+            customSwatchElement.classList.remove('active');
+            if(element) element.classList.add('active');
+        }
+
+        function updateSize(val) {
+            currentSize = val;
+            document.getElementById('size-val').innerText = val;
+            updateSliderBackground('size-slider', currentSize, 30);
+        }
+
+        function updateWiggle(val) {
+            currentWiggleAmount = val;
+            document.getElementById('wiggle-val').innerText = parseFloat(val).toFixed(0);
+            updateSliderBackground('wiggle-slider', currentWiggleAmount, 10);
+        }
+
+        function openPaletteModal(mode) {
+            colorPickMode = mode;
+            const modalTitle = document.getElementById('palette-modal-title');
+            
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('palette-modal').style.display = 'block';
+
+            if (mode === 'bg') {
+                modalTitle.innerText = "배경색 변경 (B)";
+            } else { 
+                modalTitle.innerText = "색상 선택 (+)";
+            }
+        }
+
+        function selectPaletteColor(colorHex) {
+            if (colorPickMode === 'bg') {
+                canvasBgColor = colorHex;
+                backgroundImage = null; 
+                render();
+            } else {
+                customSwatchColor = colorHex; 
+                customSwatchElement.style.backgroundColor = colorHex; 
+                setColor(colorHex, customSwatchElement);
+                customSwatchElement.classList.add('active'); 
+            }
+            closeModal();
+        }
+
+        function confirmNew() {
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('new-modal').style.display = 'block';
+        }
+
+        function confirmClear() {
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('clear-modal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('clear-modal').style.display = 'none';
+            document.getElementById('new-modal').style.display = 'none'; 
+            document.getElementById('palette-modal').style.display = 'none';
+        }
+
+        function loadImageBackground() {
+            bgImageInput.click();
+        }
+
+        bgImageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            loadingText.innerText = "배경 처리 중...";
+            loadingOverlay.style.display = 'flex';
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvasSize = 500;
+                    const scale = Math.max(canvasSize / img.width, canvasSize / img.height);
+                    const newW = img.width * scale;
+                    const newH = img.height * scale;
+                    const x = (canvasSize - newW) / 2;
+                    const y = (canvasSize - newH) / 2;
+
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = canvasSize;
+                    tempCanvas.height = canvasSize;
+                    const tCtx = tempCanvas.getContext('2d');
+                    
+                    tCtx.fillStyle = '#ffffff';
+                    tCtx.fillRect(0,0, canvasSize, canvasSize);
+                    
+                    tCtx.drawImage(img, x, y, newW, newH);
+
+                    const imageData = tCtx.getImageData(0, 0, canvasSize, canvasSize);
+                    const data = imageData.data;
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i]     = Math.round(data[i] / 51) * 51;     
+                        data[i + 1] = Math.round(data[i + 1] / 51) * 51; 
+                        data[i + 2] = Math.round(data[i + 2] / 51) * 51; 
+                    }
+
+                    tCtx.putImageData(imageData, 0, 0);
+
+                    const finalImg = new Image();
+                    finalImg.onload = function() {
+                        backgroundImage = finalImg;
+                        canvasBgColor = '#ffffff';
+                        render();
+                        loadingOverlay.style.display = 'none';
+                        statusText.innerText = "500X500 캔버스 (Web Safe Color)";
+                    };
+                    finalImg.src = tempCanvas.toDataURL();
+                };
+                img.onerror = function() {
+                    loadingOverlay.style.display = 'none';
+                    statusText.innerText = "이미지 로드 오류!";
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        });
+        
+        function clearCanvas() {
+            closeModal();
+            if (strokes.length > 0) {
+                lastClearSnapshot = {
+                    strokes: strokes.map(s => ({...s})), 
+                    bgImage: backgroundImage, 
+                    bgColor: canvasBgColor
+                }; 
+                lastClearRedoSnapshot = null;
+                removedStrokes = []; 
+                strokes = []; 
+            }
+            render();
+        }
+        
+        function createNewCanvas() {
+            closeModal();
+            lastClearSnapshot = null;
+            lastClearRedoSnapshot = null;
+            removedStrokes = [];
+            
+            strokes = []; 
+            backgroundImage = null; 
+            canvasBgColor = DEFAULT_BG_COLOR; 
+
+            selectTool('pen');
+            currentColor = '#000000';
+            const initialSwatch = document.querySelector('.color-swatch[style*="#000000"]');
+            if (initialSwatch) {
+                document.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('active'));
+                initialSwatch.classList.add('active');
+                customSwatchElement.classList.remove('active');
+            }
+            
+            render();
+            statusText.innerText = "500X500 캔버스 (Web Safe Color)";
+        }
+        
+        function undo() { 
+            if (strokes.length > 0) { 
+                removedStrokes.push(strokes.pop());
+            } else if (strokes.length === 0 && lastClearSnapshot) {
+                strokes = lastClearSnapshot.strokes;
+                backgroundImage = lastClearSnapshot.bgImage; 
+                canvasBgColor = lastClearSnapshot.bgColor;
+                
+                lastClearRedoSnapshot = lastClearSnapshot; 
+                lastClearSnapshot = null; 
+            }
+            render(); 
+        }
+
+        function redo() { 
+            if (removedStrokes.length > 0) { 
+                strokes.push(removedStrokes.pop()); 
+            } else if (removedStrokes.length === 0 && lastClearRedoSnapshot) {
+                strokes = []; 
+                lastClearSnapshot = lastClearRedoSnapshot; 
+                lastClearRedoSnapshot = null; 
+            }
+            render(); 
+        }
+
+        async function saveGif() {
+            loadingText.innerText = "GIF 생성 중...";
+            loadingOverlay.style.display = 'flex';
+            statusText.innerText = "GIF 생성 중...";
+
+            try {
+                const workerUrl = "https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js";
+                const response = await fetch(workerUrl);
+                const blob = await response.blob();
+                const workerBlobUrl = URL.createObjectURL(blob);
+
+                const gif = new GIF({
+                    workers: 2, 
+                    quality: 1, 
+                    width: canvas.width, 
+                    height: canvas.height,
+                    workerScript: workerBlobUrl, 
+                    background: canvasBgColor 
+                });
+
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = canvas.width; tempCanvas.height = canvas.height;
+                const tCtx = tempCanvas.getContext('2d');
+                const originalFrame = frame;
+
+                for (let f = 0; f < 3; f++) {
+                    frame = f; render(); 
+                    
+                    tCtx.fillStyle = canvasBgColor;
+                    tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                    if (backgroundImage) {
+                        tCtx.drawImage(backgroundImage, 0, 0, tempCanvas.width, tempCanvas.height);
+                    }
+                    tCtx.drawImage(canvas, 0, 0); 
+                    
+                    gif.addFrame(tempCanvas, {copy: true, delay: 100});
+                }
+
+                frame = originalFrame; render(); 
+
+                gif.on('finished', function(blob) {
+                    const link = document.createElement('a');
+                    const now = new Date();
+                    
+                    const yy = String(now.getFullYear()).slice(-2);
+                    const mm = String(now.getMonth() + 1).padStart(2, '0');
+                    const dd = String(now.getDate()).padStart(2, '0');
+                    const hh = String(now.getHours()).padStart(2, '0');
+                    const min = String(now.getMinutes()).padStart(2, '0');
+                    const ss = String(now.getSeconds()).padStart(2, '0');
+                    
+                    link.download = `ksms-${yy}${mm}${dd}-${hh}${min}${ss}.gif`;
+
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                    loadingOverlay.style.display = 'none';
+                    statusText.innerText = "저장 완료!";
+                    setTimeout(() => statusText.innerText = "500X500 캔버스 (Web Safe Color)", 3000);
+                });
+                gif.render();
+            } catch (e) {
+                loadingOverlay.style.display = 'none';
+                console.error("GIF 생성 실패:", e);
+            }
+        }
+
+        function toggleSound() {
+            if (!audioCtx) try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+            isSoundOn = !isSoundOn;
+            document.getElementById('sound-status').innerText = isSoundOn ? '[ON]' : '[OFF]';
+        }
+
+        function playSound(yPos) {
+            if (!isSoundOn || !audioCtx) return;
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(e => console.error("AudioContext resume failed:", e));
+            }
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = 800 - (yPos/canvas.height*600) + (Math.random()*50);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.1);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime+0.1);
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(e=>{});
+            else if (document.exitFullscreen) document.exitFullscreen();
+        }
+
+        window.onload = function() {
+            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+            requestAnimationFrame(animate);
+
+            document.getElementById('size-slider').value = currentSize;
+            updateSize(currentSize);
+            
+            document.getElementById('wiggle-slider').value = currentWiggleAmount;
+            updateWiggle(currentWiggleAmount); 
+
+            customSwatchElement.style.backgroundColor = customSwatchColor;
+            
+            const initialSwatch = document.querySelector('.color-swatch[style*="#000000"]');
+            if (initialSwatch) {
+                setColor('#000000', initialSwatch);
+            }
+        }
+    </script>
+</body>
+</html>
